@@ -17,7 +17,6 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       setIsSupported(true);
-      // The 'voiceschanged' event is crucial for loading voices, especially on some browsers.
       updateVoices();
       if (synth) {
         synth.addEventListener('voiceschanged', updateVoices);
@@ -35,13 +34,17 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
     const { text, voice, rate, pitch, volume } = options;
     if (!isSupported || !synth || isSpeaking) return;
 
-    // Ensure any ongoing speech is stopped before starting a new one.
     synth.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
+    
     utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    utterance.onend = () => {
+      setIsSpeaking(false);
+    };
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+    };
     
     if (voice) {
       utterance.voice = voice;
@@ -59,7 +62,6 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
     setIsSpeaking(false);
   }, [isSupported, synth]);
   
-  // Safety cleanup: cancel speech synthesis on component unmount.
   useEffect(() => {
     return () => {
       if (isSpeaking && synth) {
