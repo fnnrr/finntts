@@ -5,6 +5,7 @@ import { PlayIcon } from './components/icons/PlayIcon';
 import { StopIcon } from './components/icons/StopIcon';
 import { DownloadIcon } from './components/icons/DownloadIcon';
 import { PauseIcon } from './components/icons/PauseIcon';
+import { PayPalIcon } from './components/icons/PayPalIcon';
 
 // Helper component for sliders, defined outside the App component to prevent re-creation on re-renders.
 interface ControlSliderProps {
@@ -320,6 +321,21 @@ const App: React.FC = () => {
        <footer className="text-center mt-8 text-zinc-500 text-sm max-w-2xl mx-auto px-4">
           <p>Live speech is powered by the browser's Web Speech API.</p>
           <p>Download functionality uses a separate service; voice may differ from live preview. Long text will be downloaded as multiple audio files.</p>
+          
+          <div className="mt-6 pt-6 border-t border-zinc-700/50 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <span className="text-zinc-400">Enjoy the app? Support the developer:</span>
+            {/* NOTE: Replace the href with your actual PayPal link */}
+            <a
+              href="https://paypal.me/finnrrque"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 bg-zinc-700 hover:bg-zinc-600/80 text-zinc-300 hover:text-white rounded-lg transition-colors"
+              aria-label="Donate via PayPal"
+            >
+              <PayPalIcon className="h-5 w-5" />
+              <span>PayPal</span>
+            </a>
+          </div>
        </footer>
     </div>
   );
