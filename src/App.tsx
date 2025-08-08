@@ -4,6 +4,7 @@ import { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
 import { PlayIcon } from './components/icons/PlayIcon';
 import { StopIcon } from './components/icons/StopIcon';
 import { DownloadIcon } from './components/icons/DownloadIcon';
+import { PauseIcon } from './components/icons/PauseIcon';
 
 // Helper component for sliders, defined outside the App component to prevent re-creation on re-renders.
 interface ControlSliderProps {
@@ -90,7 +91,7 @@ const App: React.FC = () => {
   const [estimatedDuration, setEstimatedDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
 
-  const { isSupported, isSpeaking, voices, speak, cancel } = useSpeechSynthesis();
+  const { isSupported, isSpeaking, isPaused, voices, speak, pause, resume, cancel } = useSpeechSynthesis();
 
   useEffect(() => {
     if (voices.length > 0 && !voice) {
@@ -112,36 +113,44 @@ const App: React.FC = () => {
 
   useEffect(() => {
     let timer: number | undefined;
-    if (isSpeaking) {
-      setCurrentTime(0);
+    if (isSpeaking && !isPaused) {
       timer = window.setInterval(() => {
         setCurrentTime((prevTime) => {
             if(prevTime < estimatedDuration) {
                 return prevTime + 1;
             }
-            clearInterval(timer);
             return prevTime;
         });
       }, 1000);
-    } else {
-      setCurrentTime(0);
     }
     return () => {
-      if (timer) {
-        clearInterval(timer);
-      }
+      clearInterval(timer);
     };
-  }, [isSpeaking, estimatedDuration]);
+  }, [isSpeaking, isPaused, estimatedDuration]);
+  
+  useEffect(() => {
+      if(!isSpeaking) {
+          setCurrentTime(0);
+      }
+  }, [isSpeaking]);
 
   const handleVoiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedVoice = voices.find((v) => v.name === e.target.value);
     setVoice(selectedVoice || null);
   };
 
-  const handleSpeak = () => {
-    if (text.trim() !== '') {
-      speak({ text, voice, rate, pitch, volume });
-    }
+  const handlePrimaryAction = () => {
+      if (isSpeaking) {
+          if (isPaused) {
+              resume();
+          } else {
+              pause();
+          }
+      } else {
+          if (text.trim() !== '') {
+            speak({ text, voice, rate, pitch, volume });
+          }
+      }
   };
   
   const handleDownload = async () => {
@@ -210,6 +219,16 @@ const App: React.FC = () => {
     }
   };
 
+  const getPrimaryButtonContent = () => {
+    if (isPaused) {
+      return <><PlayIcon className="mr-2"/>Resume</>;
+    }
+    if (isSpeaking) {
+      return <><PauseIcon className="mr-2"/>Pause</>;
+    }
+    return <><PlayIcon className="mr-2"/>Speak</>;
+  };
+
   return (
     <div className="min-h-screen bg-zinc-900 text-white flex flex-col items-center justify-center p-4 font-sans">
       <div className="text-center mb-8">
@@ -270,15 +289,11 @@ const App: React.FC = () => {
 
         <div className="flex flex-wrap items-center justify-center gap-4 pt-4 border-t border-zinc-700/80">
           <button
-            onClick={handleSpeak}
-            disabled={isSpeaking || !isSupported || text.trim() === ''}
+            onClick={handlePrimaryAction}
+            disabled={!isSpeaking && (!isSupported || text.trim() === '')}
             className="flex-1 sm:flex-none flex items-center justify-center min-w-[140px] px-4 py-3 font-semibold rounded-lg transition-all duration-300 bg-gradient-to-r from-blue-500 to-sky-600 hover:from-blue-600 hover:to-sky-700 shadow-lg hover:shadow-blue-500/40 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
           >
-            {isSpeaking ? (
-              <><svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Speaking...</>
-            ) : (
-              <><PlayIcon className="mr-2"/>Speak</>
-            )}
+            {getPrimaryButtonContent()}
           </button>
           <button
             onClick={cancel}
