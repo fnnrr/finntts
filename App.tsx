@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
 import { PlayIcon } from './components/icons/PlayIcon';
@@ -71,6 +72,11 @@ const VoiceSelector: React.FC<VoiceSelectorProps> = ({ isSupported, voices, sele
   );
 };
 
+const formatTime = (timeInSeconds: number) => {
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = Math.floor(timeInSeconds % 60);
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
 
 const App: React.FC = () => {
   const [text, setText] = useState<string>("Hello, world! This is a modern text-to-speech synthesizer. Try typing something new, even a very long text!");
@@ -80,6 +86,8 @@ const App: React.FC = () => {
   const [volume, setVolume] = useState<number>(1);
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [estimatedDuration, setEstimatedDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
 
   const { isSupported, isSpeaking, voices, speak, cancel } = useSpeechSynthesis();
 
@@ -90,6 +98,41 @@ const App: React.FC = () => {
       setVoice(defaultVoice);
     }
   }, [voices, voice]);
+  
+  useEffect(() => {
+    if (text.trim() === '') {
+      setEstimatedDuration(0);
+      return;
+    }
+    const words = text.trim().split(/\s+/).length;
+    // Estimated words per minute for calculation
+    const averageWPM = 180; 
+    const durationSeconds = (words / averageWPM) * 60;
+    // Adjust duration based on playback rate
+    setEstimatedDuration(durationSeconds / rate);
+  }, [text, rate]);
+
+  useEffect(() => {
+    let timer: number | undefined;
+    if (isSpeaking) {
+      setCurrentTime(0); // Reset timer on start
+      timer = window.setInterval(() => {
+        setCurrentTime((prevTime) => {
+            if(prevTime < estimatedDuration) {
+                return prevTime + 1;
+            }
+            return prevTime;
+        });
+      }, 1000);
+    } else {
+      setCurrentTime(0);
+    }
+    return () => {
+      if (timer) {
+        clearInterval(timer);
+      }
+    };
+  }, [isSpeaking, estimatedDuration]);
 
   const handleVoiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedVoice = voices.find((v) => v.name === e.target.value);
@@ -191,11 +234,26 @@ const App: React.FC = () => {
               setText(e.target.value);
               if (downloadError) setDownloadError(null);
             }}
+            readOnly={isSpeaking}
             className="w-full h-96 p-4 bg-zinc-900/70 border border-zinc-700 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:outline-none transition-shadow"
             placeholder="Enter text here..."
             aria-label="Text to synthesize"
           />
         </div>
+        
+        {isSpeaking && (
+          <div className="space-y-2">
+            <div className="w-full bg-zinc-700 rounded-full h-2">
+              <div
+                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${estimatedDuration > 0 ? (currentTime / estimatedDuration) * 100 : 0}%` }}
+              ></div>
+            </div>
+            <div className="text-right text-xs text-zinc-400 font-mono">
+              <span>{formatTime(currentTime)}</span> / <span>{formatTime(estimatedDuration)}</span>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <VoiceSelector
