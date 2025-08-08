@@ -6,6 +6,7 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
   const [isSupported, setIsSupported] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
 
   const updateVoices = useCallback(() => {
@@ -37,13 +38,23 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
     synth.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    
-    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+      setIsPaused(false);
+    };
+    utterance.onpause = () => {
+        setIsPaused(true);
+    };
+    utterance.onresume = () => {
+        setIsPaused(false);
+    };
     utterance.onend = () => {
       setIsSpeaking(false);
+      setIsPaused(false);
     };
     utterance.onerror = () => {
       setIsSpeaking(false);
+      setIsPaused(false);
     };
     
     if (voice) {
@@ -60,7 +71,18 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
     if (!isSupported || !synth) return;
     synth.cancel();
     setIsSpeaking(false);
+    setIsPaused(false);
   }, [isSupported, synth]);
+
+  const pause = useCallback(() => {
+    if (!isSupported || !synth || !isSpeaking) return;
+    synth.pause();
+  }, [isSupported, synth, isSpeaking]);
+
+  const resume = useCallback(() => {
+    if (!isSupported || !synth || !isSpeaking) return;
+    synth.resume();
+  }, [isSupported, synth, isSpeaking]);
   
   useEffect(() => {
     return () => {
@@ -70,5 +92,5 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
     };
   }, [isSpeaking, synth]);
 
-  return { isSupported, isSpeaking, voices, speak, cancel };
+  return { isSupported, isSpeaking, isPaused, voices, speak, pause, resume, cancel };
 };
