@@ -6,9 +6,7 @@ A modern, browser-based text-to-speech application that converts text into natur
 **[➡️ Live Demo](https://finntts.netlify.app/)**
 
 ## Application Screenshot
-<img width="515" height="631" alt="image" src="https://github.com/user-attachments/assets/6a0fca8a-15e5-41c0-bb5f-e6823d736b88" /> <img width="506" height="287" alt="image" src="https://github.com/user-attachments/assets/e2949356-84d0-4c3a-9e34-b78a95c413f4" />
-
-
+<img width="362" height="518" alt="image" src="https://github.com/user-attachments/assets/1b1bff72-d295-4916-9a45-d7ffe30345dc" />
 
 ---
 
