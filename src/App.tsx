@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
 import { PlayIcon } from './components/icons/PlayIcon';
@@ -71,6 +72,12 @@ const VoiceSelector: React.FC<VoiceSelectorProps> = ({ isSupported, voices, sele
   );
 };
 
+const formatTime = (timeInSeconds: number) => {
+  const minutes = Math.floor(timeInSeconds / 60);
+  const seconds = Math.floor(timeInSeconds % 60);
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
+
 
 const App: React.FC = () => {
   const [text, setText] = useState<string>("Hello, world! This is a modern text-to-speech synthesizer. Try typing something new, even a very long text!");
@@ -80,16 +87,51 @@ const App: React.FC = () => {
   const [volume, setVolume] = useState<number>(1);
   const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [estimatedDuration, setEstimatedDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
 
   const { isSupported, isSpeaking, voices, speak, cancel } = useSpeechSynthesis();
 
   useEffect(() => {
     if (voices.length > 0 && !voice) {
-      // Set a default voice once they are loaded for better user experience.
       const defaultVoice = voices.find(v => v.default) || voices[0];
       setVoice(defaultVoice);
     }
   }, [voices, voice]);
+  
+  useEffect(() => {
+    if (text.trim() === '') {
+      setEstimatedDuration(0);
+      return;
+    }
+    const words = text.trim().split(/\s+/).length;
+    const averageWPM = 180;
+    const durationSeconds = (words / averageWPM) * 60;
+    setEstimatedDuration(durationSeconds / rate);
+  }, [text, rate]);
+
+  useEffect(() => {
+    let timer: number | undefined;
+    if (isSpeaking) {
+      setCurrentTime(0);
+      timer = window.setInterval(() => {
+        setCurrentTime((prevTime) => {
+            if(prevTime < estimatedDuration) {
+                return prevTime + 1;
+            }
+            clearInterval(timer);
+            return prevTime;
+        });
+      }, 1000);
+    } else {
+      setCurrentTime(0);
+    }
+    return () => {
+      if (timer) {
+        clearInterval(timer);
+      }
+    };
+  }, [isSpeaking, estimatedDuration]);
 
   const handleVoiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedVoice = voices.find((v) => v.name === e.target.value);
@@ -108,10 +150,9 @@ const App: React.FC = () => {
     setIsDownloading(true);
     setDownloadError(null);
 
-    const CHUNK_SIZE = 200; // Max characters per API request
+    const CHUNK_SIZE = 200;
     const chunks: string[] = [];
     
-    // Split text into chunks, trying to preserve full words.
     let remainingText = text.trim();
     while (remainingText.length > 0) {
       if (remainingText.length <= CHUNK_SIZE) {
@@ -120,7 +161,7 @@ const App: React.FC = () => {
       }
       
       let splitPos = remainingText.lastIndexOf(' ', CHUNK_SIZE);
-      if (splitPos === -1) { // If a single word is longer than CHUNK_SIZE
+      if (splitPos === -1) {
         splitPos = CHUNK_SIZE;
       }
       
@@ -136,17 +177,13 @@ const App: React.FC = () => {
         if (chunk.trim() === '') continue;
 
         const encodedText = encodeURIComponent(chunk);
-        // The original Google Translate URL is the target.
         const targetUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&q=${encodedText}&tl=${lang}`;
-        
-        // We wrap it with a CORS proxy to bypass browser security restrictions.
         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
         const response = await fetch(proxyUrl);
         if (!response.ok) throw new Error(`Network response was not ok for chunk ${i + 1}. Status: ${response.status}`);
         
         const blob = await response.blob();
-        // Check if the response is an error page from Google, which might be HTML.
         if (blob.type.includes('html')) {
           throw new Error(`Received an error page for chunk ${i + 1}. The API may have rejected the request.`);
         }
@@ -160,7 +197,6 @@ const App: React.FC = () => {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(blobUrl);
 
-        // Add a small delay between downloads to prevent issues.
         if (chunks.length > 1 && i < chunks.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
@@ -191,11 +227,26 @@ const App: React.FC = () => {
               setText(e.target.value);
               if (downloadError) setDownloadError(null);
             }}
+            readOnly={isSpeaking}
             className="w-full h-96 p-4 bg-zinc-900/70 border border-zinc-700 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:outline-none transition-shadow"
             placeholder="Enter text here..."
             aria-label="Text to synthesize"
           />
         </div>
+
+        {isSpeaking && (
+          <div className="space-y-2">
+            <div className="w-full bg-zinc-700 rounded-full h-2">
+              <div
+                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${estimatedDuration > 0 ? (currentTime / estimatedDuration) * 100 : 0}%` }}
+              ></div>
+            </div>
+            <div className="text-right text-xs text-zinc-400 font-mono">
+              <span>{formatTime(currentTime)}</span> / <span>{formatTime(estimatedDuration)}</span>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <VoiceSelector
