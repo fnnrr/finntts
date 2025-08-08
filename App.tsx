@@ -176,6 +176,12 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-zinc-900 text-white flex flex-col items-center justify-center p-4 font-sans">
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-sky-500">
+          Text-To-Speech Synthesizer
+        </h1>
+        <p className="text-zinc-400 text-lg mt-1">by: finn</p>
+      </div>
       <div className="w-full max-w-2xl mx-auto bg-zinc-800/50 backdrop-blur-lg border border-zinc-700/80 rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6 transform transition-all">
         
         <div className="relative">
@@ -185,7 +191,7 @@ const App: React.FC = () => {
               setText(e.target.value);
               if (downloadError) setDownloadError(null);
             }}
-            className="w-full h-64 p-4 bg-zinc-900/70 border border-zinc-700 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:outline-none transition-shadow"
+            className="w-full h-96 p-4 bg-zinc-900/70 border border-zinc-700 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:outline-none transition-shadow"
             placeholder="Enter text here..."
             aria-label="Text to synthesize"
           />
