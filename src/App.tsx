@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
 import { PlayIcon } from './components/icons/PlayIcon';
@@ -177,9 +176,12 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-zinc-900 text-white flex flex-col items-center justify-center p-4 font-sans">
-      <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-sky-500 mb-8 text-center">
-        Text-To-Speech Synthesizer
-      </h1>
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-sky-500">
+          Text-To-Speech Synthesizer
+        </h1>
+        <p className="text-zinc-400 text-lg mt-1">by: finn</p>
+      </div>
       <div className="w-full max-w-2xl mx-auto bg-zinc-800/50 backdrop-blur-lg border border-zinc-700/80 rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6 transform transition-all">
         
         <div className="relative">
