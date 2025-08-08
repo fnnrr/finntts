@@ -4,8 +4,8 @@ import { useSpeechSynthesis } from './hooks/useSpeechSynthesis';
 import { PlayIcon } from './components/icons/PlayIcon';
 import { StopIcon } from './components/icons/StopIcon';
 import { DownloadIcon } from './components/icons/DownloadIcon';
+import { PauseIcon } from './components/icons/PauseIcon';
 
-// Helper component for sliders, defined outside the App component to prevent re-creation on re-renders.
 interface ControlSliderProps {
   label: string;
   value: number;
@@ -33,7 +33,6 @@ const ControlSlider: React.FC<ControlSliderProps> = ({ label, value, onChange, m
   </div>
 );
 
-// Helper component for voice selector, defined outside the App component.
 interface VoiceSelectorProps {
   isSupported: boolean;
   voices: SpeechSynthesisVoice[];
@@ -89,11 +88,10 @@ const App: React.FC = () => {
   const [estimatedDuration, setEstimatedDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
 
-  const { isSupported, isSpeaking, voices, speak, cancel } = useSpeechSynthesis();
+  const { isSupported, isSpeaking, isPaused, voices, speak, pause, resume, cancel } = useSpeechSynthesis();
 
   useEffect(() => {
     if (voices.length > 0 && !voice) {
-      // Set a default voice once they are loaded for better user experience.
       const defaultVoice = voices.find(v => v.default) || voices[0];
       setVoice(defaultVoice);
     }
@@ -105,17 +103,14 @@ const App: React.FC = () => {
       return;
     }
     const words = text.trim().split(/\s+/).length;
-    // Estimated words per minute for calculation
     const averageWPM = 180; 
     const durationSeconds = (words / averageWPM) * 60;
-    // Adjust duration based on playback rate
     setEstimatedDuration(durationSeconds / rate);
   }, [text, rate]);
 
   useEffect(() => {
     let timer: number | undefined;
-    if (isSpeaking) {
-      setCurrentTime(0); // Reset timer on start
+    if (isSpeaking && !isPaused) {
       timer = window.setInterval(() => {
         setCurrentTime((prevTime) => {
             if(prevTime < estimatedDuration) {
@@ -124,25 +119,35 @@ const App: React.FC = () => {
             return prevTime;
         });
       }, 1000);
-    } else {
-      setCurrentTime(0);
     }
     return () => {
-      if (timer) {
-        clearInterval(timer);
-      }
+      clearInterval(timer);
     };
-  }, [isSpeaking, estimatedDuration]);
+  }, [isSpeaking, isPaused, estimatedDuration]);
+  
+  useEffect(() => {
+      if(!isSpeaking) {
+          setCurrentTime(0);
+      }
+  }, [isSpeaking]);
 
   const handleVoiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedVoice = voices.find((v) => v.name === e.target.value);
     setVoice(selectedVoice || null);
   };
 
-  const handleSpeak = () => {
-    if (text.trim() !== '') {
-      speak({ text, voice, rate, pitch, volume });
-    }
+  const handlePrimaryAction = () => {
+      if (isSpeaking) {
+          if (isPaused) {
+              resume();
+          } else {
+              pause();
+          }
+      } else {
+          if (text.trim() !== '') {
+            speak({ text, voice, rate, pitch, volume });
+          }
+      }
   };
   
   const handleDownload = async () => {
@@ -151,10 +156,9 @@ const App: React.FC = () => {
     setIsDownloading(true);
     setDownloadError(null);
 
-    const CHUNK_SIZE = 200; // Max characters per API request
+    const CHUNK_SIZE = 200;
     const chunks: string[] = [];
     
-    // Split text into chunks, trying to preserve full words.
     let remainingText = text.trim();
     while (remainingText.length > 0) {
       if (remainingText.length <= CHUNK_SIZE) {
@@ -163,7 +167,7 @@ const App: React.FC = () => {
       }
       
       let splitPos = remainingText.lastIndexOf(' ', CHUNK_SIZE);
-      if (splitPos === -1) { // If a single word is longer than CHUNK_SIZE
+      if (splitPos === -1) {
         splitPos = CHUNK_SIZE;
       }
       
@@ -179,17 +183,13 @@ const App: React.FC = () => {
         if (chunk.trim() === '') continue;
 
         const encodedText = encodeURIComponent(chunk);
-        // The original Google Translate URL is the target.
         const targetUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&q=${encodedText}&tl=${lang}`;
-        
-        // We wrap it with a CORS proxy to bypass browser security restrictions.
         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
 
         const response = await fetch(proxyUrl);
         if (!response.ok) throw new Error(`Network response was not ok for chunk ${i + 1}. Status: ${response.status}`);
         
         const blob = await response.blob();
-        // Check if the response is an error page from Google, which might be HTML.
         if (blob.type.includes('html')) {
           throw new Error(`Received an error page for chunk ${i + 1}. The API may have rejected the request.`);
         }
@@ -203,7 +203,6 @@ const App: React.FC = () => {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(blobUrl);
 
-        // Add a small delay between downloads to prevent issues.
         if (chunks.length > 1 && i < chunks.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
@@ -215,6 +214,16 @@ const App: React.FC = () => {
     } finally {
       setIsDownloading(false);
     }
+  };
+
+  const getPrimaryButtonContent = () => {
+    if (isPaused) {
+      return <><PlayIcon className="mr-2"/>Resume</>;
+    }
+    if (isSpeaking) {
+      return <><PauseIcon className="mr-2"/>Pause</>;
+    }
+    return <><PlayIcon className="mr-2"/>Speak</>;
   };
 
   return (
@@ -277,15 +286,11 @@ const App: React.FC = () => {
 
         <div className="flex flex-wrap items-center justify-center gap-4 pt-4 border-t border-zinc-700/80">
           <button
-            onClick={handleSpeak}
-            disabled={isSpeaking || !isSupported || text.trim() === ''}
+            onClick={handlePrimaryAction}
+            disabled={!isSpeaking && (!isSupported || text.trim() === '')}
             className="flex-1 sm:flex-none flex items-center justify-center min-w-[140px] px-4 py-3 font-semibold rounded-lg transition-all duration-300 bg-gradient-to-r from-blue-500 to-sky-600 hover:from-blue-600 hover:to-sky-700 shadow-lg hover:shadow-blue-500/40 transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
           >
-            {isSpeaking ? (
-              <><svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Speaking...</>
-            ) : (
-              <><PlayIcon className="mr-2"/>Speak</>
-            )}
+            {getPrimaryButtonContent()}
           </button>
           <button
             onClick={cancel}
